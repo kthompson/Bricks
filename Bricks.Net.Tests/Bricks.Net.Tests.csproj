@@ -5,11 +5,11 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{19ABE067-9A2C-4F1E-89AE-08CCCE6D1BAE}</ProjectGuid>
+    <ProjectGuid>{BA12B1E7-C28D-44DE-8B87-9F7BAFB3C0CD}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Bricks.Http</RootNamespace>
-    <AssemblyName>Bricks.Http</AssemblyName>
+    <RootNamespace>Bricks.Net.Tests</RootNamespace>
+    <AssemblyName>Bricks.Net.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -31,6 +31,13 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="nunit.framework, Version=2.5.9.10348, Culture=neutral, PublicKeyToken=96d09a1eb7f44a77, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\NUnit-2.9.3_net-4.0\nunit.framework.dll</HintPath>
+    </Reference>
+    <Reference Include="nunit.interfaces">
+      <HintPath>..\lib\NUnit-2.9.3_net-4.0\nunit.interfaces.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -40,14 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ClientRequest.cs" />
-    <Compile Include="ClientResponse.cs" />
-    <Compile Include="IncomingMessage.cs" />
-    <Compile Include="OutgoingMessage.cs" />
-    <Compile Include="Server.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ServerRequest.cs" />
-    <Compile Include="ServerResponse.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bricks.Net\Bricks.Net.csproj">

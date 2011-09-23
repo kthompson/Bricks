@@ -5,11 +5,11 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{19ABE067-9A2C-4F1E-89AE-08CCCE6D1BAE}</ProjectGuid>
+    <ProjectGuid>{E53BECA2-2CFE-4D9C-AFFB-264CE7D29439}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Bricks.Http</RootNamespace>
-    <AssemblyName>Bricks.Http</AssemblyName>
+    <RootNamespace>Bricks.Net</RootNamespace>
+    <AssemblyName>Bricks.Net</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -40,20 +40,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ClientRequest.cs" />
-    <Compile Include="ClientResponse.cs" />
-    <Compile Include="IncomingMessage.cs" />
-    <Compile Include="OutgoingMessage.cs" />
-    <Compile Include="Server.cs" />
+    <Compile Include="EventArgs.cs" />
+    <Compile Include="EventStream.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ServerRequest.cs" />
-    <Compile Include="ServerResponse.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Bricks.Net\Bricks.Net.csproj">
-      <Project>{E53BECA2-2CFE-4D9C-AFFB-264CE7D29439}</Project>
-      <Name>Bricks.Net</Name>
-    </ProjectReference>
+    <Compile Include="Server.cs" />
+    <Compile Include="TcpSocket.cs" />
+    <Compile Include="Stream.cs" />
+    <Compile Include="TcpServer.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

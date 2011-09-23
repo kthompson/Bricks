@@ -60,10 +60,31 @@ namespace Bricks.Net
         public bool Writable { get; set; }
 
         public abstract bool Write(byte[] chunk);
-        public abstract bool Write(string chunk, Encoding encoding = null);
-        public abstract void End();
-        public abstract void End(byte[] chunk);
-        public abstract void End(string chunk, Encoding encoding = null);
+
+        public virtual bool Write(string chunk, Encoding encoding = null)
+        {
+            if (encoding == null)
+                encoding = Encoding.UTF8;
+
+            return this.Write(encoding.GetBytes(chunk));
+        }
+
+        public virtual void End()
+        {
+            this.OnEnded();
+        }
+        
+        public virtual void End(byte[] chunk)
+        {
+            this.Write(chunk);
+            this.End();
+        }
+
+        public virtual void End(string chunk, Encoding encoding = null)
+        {
+            this.Write(chunk, encoding);
+            this.End();
+        }
 
         #endregion
     }

@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bricks.Net", "Core\Bricks.Net.csproj", "{E53BECA2-2CFE-4D9C-AFFB-264CE7D29439}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bricks.Net", "Bricks.Net\Bricks.Net.csproj", "{E53BECA2-2CFE-4D9C-AFFB-264CE7D29439}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bricks.Http", "Bricks.Http\Bricks.Http.csproj", "{19ABE067-9A2C-4F1E-89AE-08CCCE6D1BAE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bricks.Net.Tests", "Bricks.Net.Tests\Bricks.Net.Tests.csproj", "{BA12B1E7-C28D-44DE-8B87-9F7BAFB3C0CD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bricks.Http.Tests", "Bricks.Http.Tests\Bricks.Http.Tests.csproj", "{73D711A0-1F9B-4758-9E42-F4F4D01B24DD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,6 +23,14 @@ Global
 		{19ABE067-9A2C-4F1E-89AE-08CCCE6D1BAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{19ABE067-9A2C-4F1E-89AE-08CCCE6D1BAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{19ABE067-9A2C-4F1E-89AE-08CCCE6D1BAE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA12B1E7-C28D-44DE-8B87-9F7BAFB3C0CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA12B1E7-C28D-44DE-8B87-9F7BAFB3C0CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA12B1E7-C28D-44DE-8B87-9F7BAFB3C0CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA12B1E7-C28D-44DE-8B87-9F7BAFB3C0CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{73D711A0-1F9B-4758-9E42-F4F4D01B24DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{73D711A0-1F9B-4758-9E42-F4F4D01B24DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{73D711A0-1F9B-4758-9E42-F4F4D01B24DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{73D711A0-1F9B-4758-9E42-F4F4D01B24DD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
