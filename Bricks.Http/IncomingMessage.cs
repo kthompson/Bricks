@@ -39,11 +39,12 @@ namespace Bricks.Http
         public string HttpVersion { get; private set; }
         public TcpSocket Connection { get; private set; }
 
-        public void Pause()
+        public override void Pause()
         {
+            
         }
 
-        public void Resume()
+        public override void Resume()
         {
         }
     }

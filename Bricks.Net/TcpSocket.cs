@@ -10,6 +10,8 @@ namespace Bricks.Net
 {
     public class TcpSocket : Stream
     {
+        //private ReaderWriterLockSlim _rwLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+
         public enum TcpSocketType
         {
             IPv4,
@@ -29,6 +31,88 @@ namespace Bricks.Net
                 default:
                     throw new ArgumentOutOfRangeException("type");
             }
+
+            this.InitializeSocket();
+        }
+
+        internal TcpSocket(Socket socket)
+        {
+            this._socket = socket;
+            this.InitializeSocket();
+
+            ThreadPool.QueueUserWorkItem(o => this.BeginReceive());
+        }
+
+        private void InitializeSocket()
+        {
+            //this._socket.Blocking = false;
+            this.BufferSize = 4096;
+        }
+
+        protected void BeginReceive()
+        {
+            try
+            {
+                //this._rwLock.EnterReadLock();
+
+                // allocate a buffer
+                var chunk = new byte[this.BufferSize];
+
+                // kick off an async read
+                this._socket.BeginReceive(chunk, 0, chunk.Length, SocketFlags.None, EndReceive, chunk);
+
+            }
+            finally
+            {
+                //this._rwLock.ExitReadLock();
+            }
+        }
+
+        private void EndReceive(IAsyncResult ar)
+        {
+                 
+            byte[] buffer;
+            SocketError errorCode;
+            int size;
+
+            try
+            {
+                //this._rwLock.EnterReadLock();
+
+                //immediately start the next receive
+                this.BeginReceive();
+
+                //get the buffer created for this receive
+                buffer = (byte[])ar.AsyncState;
+
+                //get the data length received
+                size = this._socket.EndReceive(ar, out errorCode);
+
+            }
+            catch (SocketException)
+            {
+                //if we received a SocketException then don't trigger the ReceiveCallback
+                return;
+            }
+            catch(Exception e)
+            {
+                return;       
+            }
+            finally
+            {
+                //this._rwLock.ExitReadLock();
+            }
+
+            switch (errorCode)
+            {
+                case SocketError.Success:
+                    if(size > 0)
+                        this.OnData(buffer, size);
+                    break;
+                default:
+                    this.OnError((int) errorCode);
+                    break;
+            }
         }
 
         private readonly Socket _socket;
@@ -45,7 +129,7 @@ namespace Bricks.Net
             set { this._socket.NoDelay = value; }
         }
 
-        public void Connect(int port, string host = null, Action<TcpSocket> callback = null)
+        public void Connect(int port, string host = null, Action<TcpSocket> connectedCallback = null)
         {
             if (string.IsNullOrEmpty(host))
             {
@@ -59,21 +143,23 @@ namespace Bricks.Net
 
                 this.RemoteEndPoint = new IPEndPoint(ip, port);
             }
-            
-            _socket.BeginConnect(this.RemoteEndPoint, ar =>
-                                                          {
-                                                              _socket.EndConnect(ar);
-                                                              if (callback != null)
-                                                                  callback(this);
-                                                          }, _socket);
-            
+            this.Connected += connectedCallback;
+
+            _socket.BeginConnect(this.RemoteEndPoint, EndConnect, _socket);
+        }
+
+        private void EndConnect(IAsyncResult ar)
+        {
+            _socket.EndConnect(ar);
+
+            this.OnConnected();
+            this.BeginReceive();
         }
 
         public void SetTimeout(int timeout, Action<TcpSocket> callback = null)
         {
-            
+            throw new NotImplementedException();
         }
-
 
         public override void Pause()
         {
@@ -95,52 +181,66 @@ namespace Bricks.Net
             throw new NotImplementedException();
         }
 
-        private readonly Queue<Tuple<byte[], Action>> _packets = new Queue<Tuple<byte[], Action>>();
+        //private readonly Queue<Tuple<byte[], Action>> _packets = new Queue<Tuple<byte[], Action>>();
         public bool Write(byte[] chunk, Action dataWrittenCallback)
         {
-            lock (this._packets)
+            try
             {
-                if (this._socket.Blocking || this._packets.Count > 0)
-                {
+                //this._rwLock.EnterWriteLock();
+                //lock (this._packets)
+                //{
+                //if (this._socket.Blocking || this._packets.Count > 0)
+                //{
 
-                    _packets.Enqueue(Tuple.Create(chunk, dataWrittenCallback));
-                    ThreadPool.QueueUserWorkItem(state => WritePacketFromQueue());
-                    return false;
-                }
-
-                _socket.
+                //    _packets.Enqueue(Tuple.Create(chunk, dataWrittenCallback));
+                //    ThreadPool.QueueUserWorkItem(state => WritePacketFromQueue());
+                //    return false;
+                //}
+                //TODO: do we need to be throttling this?
                 _socket.BeginSend(chunk, 0, chunk.Length, SocketFlags.None, ar => EndWrite(ar, dataWrittenCallback), this._socket);
+                //}
+            }
+            finally
+            {
+                //this._rwLock.ExitWriteLock();
             }
 
-            return true;
+            return false;
         }
 
         private void EndWrite(IAsyncResult ar, Action dataWrittenCallback)
         {
-            this._socket.EndSend(ar);
-
-            if(dataWrittenCallback != null)
-                dataWrittenCallback();
-        }
-
-        private void WritePacketFromQueue()
-        {
-            Tuple<byte[], Action> tuple;
-            lock (this._packets)
+            try
             {
-                tuple = _packets.Dequeue();
-                while (this._socket.Blocking)
-                {
-                    Thread.Sleep(30);
-                }
+                //this._rwLock.EnterWriteLock();
 
-                _socket.Send(tuple.Item1, 0, tuple.Item1.Length, SocketFlags.None);
-
+                this._socket.EndSend(ar);
+            }
+            finally
+            {
+                //this._rwLock.ExitWriteLock();
             }
 
-            if (tuple.Item2 != null)
-                tuple.Item2();
+            dataWrittenCallback.TryInvoke();
         }
+
+        //private void WritePacketFromQueue()
+        //{
+        //    Tuple<byte[], Action> tuple;
+        //    lock (this._packets)
+        //    {
+        //        tuple = _packets.Dequeue();
+        //        while (this._socket.Blocking)
+        //        {
+        //            Thread.Sleep(30);
+        //        }
+
+        //        _socket.BeginSend(tuple.Item1, 0, tuple.Item1.Length, SocketFlags.None, ar => EndWrite(ar, tuple.Item2), this._socket);
+
+        //        if(this._packets.Count > 0)
+        //            ThreadPool.QueueUserWorkItem(state => WritePacketFromQueue());
+        //    }
+        //}
 
         public override bool Write(byte[] chunk)
         {
@@ -158,6 +258,12 @@ namespace Bricks.Net
         public override void End()
         {
             this._socket.Shutdown(SocketShutdown.Both);
+        }
+
+        public event Action<TcpSocket> Connected;
+        protected virtual void OnConnected()
+        {
+            this.Connected.TryInvoke(this);
         }
     }
 }

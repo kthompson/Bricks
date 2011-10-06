@@ -6,36 +6,28 @@ namespace Bricks.Net
     public abstract class Stream
     {
         #region Readable stuff
-        public event Action<byte[]> Data;
-        protected virtual void OnData(byte[] chunk)
+        public event Action<byte[], int> Data;
+        protected virtual void OnData(byte[] chunk, int count)
         {
-            var handler = this.Data;
-            if (handler != null)
-                handler(chunk);
+            this.Data.TryInvoke(chunk, count);
         }
 
         public event Action Ended;
         protected virtual void OnEnded()
         {
-            var handler = this.Ended;
-            if (handler != null)
-                handler();
+            this.Ended.TryInvoke();
         }
 
         public event Action<int> Error;
         protected virtual void OnError(int error)
         {
-            var handler = this.Error;
-            if (handler != null)
-                handler(error);
+            this.Error.TryInvoke(error);
         }
 
         public event Action Close;
         protected virtual void OnClose()
         {
-            var handler = this.Close;
-            if (handler != null)
-                handler();
+            this.Close.TryInvoke();
         }
 
 
@@ -52,9 +44,7 @@ namespace Bricks.Net
         public event Action Drain;
         protected virtual void OnDrain()
         {
-            var handler = this.Drain;
-            if (handler != null)
-                handler();
+            this.Drain.TryInvoke();
         }
 
         public bool Writable { get; set; }

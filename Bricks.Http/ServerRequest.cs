@@ -6,7 +6,7 @@ using Bricks.Net;
 
 namespace Bricks.Http
 {
-    public class ServerRequest : IncomingMessage
+    public abstract class ServerRequest : IncomingMessage
     {
         public ServerRequest(TcpSocket socket)
             : base(socket)
