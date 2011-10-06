@@ -182,7 +182,7 @@ namespace Bricks.Net
         }
 
         //private readonly Queue<Tuple<byte[], Action>> _packets = new Queue<Tuple<byte[], Action>>();
-        public bool Write(byte[] chunk, Action dataWrittenCallback)
+        public override bool Write(byte[] chunk, int index, int count, Action dataWrittenCallback = null)
         {
             try
             {
@@ -196,8 +196,11 @@ namespace Bricks.Net
                 //    ThreadPool.QueueUserWorkItem(state => WritePacketFromQueue());
                 //    return false;
                 //}
+
+                //TODO: Check parameters for validity
+
                 //TODO: do we need to be throttling this?
-                _socket.BeginSend(chunk, 0, chunk.Length, SocketFlags.None, ar => EndWrite(ar, dataWrittenCallback), this._socket);
+                _socket.BeginSend(chunk, index, count, SocketFlags.None, ar => EndWrite(ar, dataWrittenCallback), this._socket);
                 //}
             }
             finally
@@ -241,19 +244,6 @@ namespace Bricks.Net
         //            ThreadPool.QueueUserWorkItem(state => WritePacketFromQueue());
         //    }
         //}
-
-        public override bool Write(byte[] chunk)
-        {
-            return this.Write(chunk, null);
-        }
-
-        public bool Write(string chunk, Encoding encoding = null, Action dataWrittenCallback = null)
-        {
-            if (encoding == null)
-                encoding = Encoding.UTF8;
-
-            return this.Write(encoding.GetBytes(chunk), dataWrittenCallback);
-        }
 
         public override void End()
         {

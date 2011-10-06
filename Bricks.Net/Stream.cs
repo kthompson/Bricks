@@ -49,30 +49,35 @@ namespace Bricks.Net
 
         public bool Writable { get; set; }
 
-        public abstract bool Write(byte[] chunk);
+        public abstract bool Write(byte[] chunk, int index, int count, Action dataWrittenCallback = null);
 
-        public virtual bool Write(string chunk, Encoding encoding = null)
+        public virtual bool Write(byte[] chunk, Action dataWrittenCallback = null)
+        {
+            return this.Write(chunk, 0, chunk.Length, dataWrittenCallback);
+        }
+
+        public virtual bool Write(string chunk, Encoding encoding = null, Action dataWrittenCallback = null)
         {
             if (encoding == null)
                 encoding = Encoding.UTF8;
 
-            return this.Write(encoding.GetBytes(chunk));
+            return this.Write(encoding.GetBytes(chunk), dataWrittenCallback);
         }
 
         public virtual void End()
         {
             this.OnEnded();
         }
-        
-        public virtual void End(byte[] chunk)
+
+        public virtual void End(byte[] chunk, Action dataWrittenCallback = null)
         {
-            this.Write(chunk);
+            this.Write(chunk, dataWrittenCallback);
             this.End();
         }
 
-        public virtual void End(string chunk, Encoding encoding = null)
+        public virtual void End(string chunk, Encoding encoding = null, Action dataWrittenCallback = null)
         {
-            this.Write(chunk, encoding);
+            this.Write(chunk, encoding, dataWrittenCallback);
             this.End();
         }
 

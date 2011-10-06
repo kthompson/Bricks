@@ -15,7 +15,7 @@ namespace Bricks.Net.Tests
         {
             var sync = new ManualResetEventSlim();
             var hello = Encoding.UTF8.GetBytes("hello");
-            var echoServer = new Server(socket => socket.Data += (data, count) => socket.Write(data));
+            var echoServer = new Server(socket => socket.Data += (data, count) => socket.Write(data, 0, count));
             echoServer.Listen(1234, null, server =>
                                               {
                                                   var sender = new TcpSocket(TcpSocket.TcpSocketType.IPv4, false);
@@ -27,7 +27,7 @@ namespace Bricks.Net.Tests
                                                   };
                                               });
 
-            sync.Wait();
+            Assert.IsTrue(sync.Wait(TimeSpan.FromSeconds(10)), "Failed to call set");
         }
     }
 }

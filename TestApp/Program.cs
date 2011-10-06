@@ -27,7 +27,7 @@ namespace TestApp
                 if("hello" != Encoding.UTF8.GetString(data, 0, count))
                     throw new Exception();
 
-                sync.Set();//we can exit the main thread now
+                //sync.Set();//we can exit the main thread now
             };
             
 
@@ -36,7 +36,7 @@ namespace TestApp
 
         static void OnConnection(TcpSocket socket)
         {
-            socket.Data += (data, count) => socket.Write(data);
+            socket.Data += (data, count) => socket.Write(data, 0, count);
         }
     }
 }
