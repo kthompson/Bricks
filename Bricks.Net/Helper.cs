@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 
 namespace Bricks.Net
@@ -31,6 +32,40 @@ namespace Bricks.Net
         {
             if (callback != null)
                 callback(obj1, obj2, obj3);
+        }
+
+        public static IPEndPoint EndPointFromHostname(string host, int port)
+        {
+            if (string.IsNullOrEmpty(host))
+                return new IPEndPoint(IPAddress.Any, port);
+
+            var ip = IPFromHostname(host);
+
+            return ip.Try(() => new IPEndPoint(ip, port));
+        }
+
+        public static IPAddress IPFromHostname(string host)
+        {
+            IPAddress ip;
+            if (IPAddress.TryParse(host, out ip))
+                return ip;
+
+            return Dns.GetHostAddresses(host).FirstOrDefault();
+        }
+
+
+        public static TResult Try<T, TResult>(this T o, Func<TResult> func)
+            where T : class
+            where TResult : class
+        {
+            return o == null ? null : func();
+        }
+
+        public static TResult Try<T, TResult>(this T o, Func<T, TResult> func)
+            where T : class
+            where TResult : class
+        {
+            return o == null ? null : func(o);
         }
     }
 }

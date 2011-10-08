@@ -29,7 +29,7 @@ namespace Bricks.Net
         {
             this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             //TODO: parse the host value properly
-            //TODO: investigate how long this takes it might make sense to load it all into another thread
+            //TODO: investigate how long this takes, it might make sense to load it all into another thread
             this._socket.Bind(new IPEndPoint(IPAddress.Any, port));
             this._socket.Listen(100);
             this._socket.BeginAccept(EndListen, this);
@@ -52,13 +52,14 @@ namespace Bricks.Net
         /// Stop accepting connections for <param name="ms">ms</param> milliseconds
         /// </summary>
         /// <param name="ms"></param>
-        public void Pause(int ms)
+        public void Pause(int ms = 100)
         {
-            
+            throw new NotImplementedException();
         }
 
         public void Close()
         {
+            throw new NotImplementedException();
         }
 
 

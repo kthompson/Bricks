@@ -8,7 +8,7 @@ using System.Threading;
 
 namespace Bricks.Net
 {
-    public class TcpSocket : Stream
+    public sealed class TcpSocket : Stream
     {
         //private ReaderWriterLockSlim _rwLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
@@ -31,7 +31,6 @@ namespace Bricks.Net
                 default:
                     throw new ArgumentOutOfRangeException("type");
             }
-
             this.InitializeSocket();
         }
 
@@ -49,7 +48,7 @@ namespace Bricks.Net
             this.BufferSize = 4096;
         }
 
-        protected void BeginReceive()
+        private void BeginReceive()
         {
             try
             {
@@ -131,18 +130,7 @@ namespace Bricks.Net
 
         public void Connect(int port, string host = null, Action<TcpSocket> connectedCallback = null)
         {
-            if (string.IsNullOrEmpty(host))
-            {
-                this.RemoteEndPoint = new IPEndPoint(IPAddress.Loopback, port);
-            }
-            else
-            {
-                var ip = Dns.GetHostAddresses(host).FirstOrDefault();
-                if (ip == null)
-                    throw new ArgumentException("host could not be resolved to a valid address", "host");
-
-                this.RemoteEndPoint = new IPEndPoint(ip, port);
-            }
+            this.RemoteEndPoint = Helper.EndPointFromHostname(host, port);
             this.Connected += connectedCallback;
 
             _socket.BeginConnect(this.RemoteEndPoint, EndConnect, _socket);
@@ -251,7 +239,8 @@ namespace Bricks.Net
         }
 
         public event Action<TcpSocket> Connected;
-        protected virtual void OnConnected()
+
+        private void OnConnected()
         {
             this.Connected.TryInvoke(this);
         }
