@@ -10,29 +10,49 @@ namespace Bricks.Net.Tests
     public class ServerHelper
     {
         private static int _nextPort = 1234;
-        public static int GetPort()
+        private static readonly object _lock = new object();
+
+        static ServerHelper()
         {
-            return _nextPort++;
+            _nextPort = new Random().Next(1234, short.MaxValue/2);
         }
 
-        public static void EchoServer(Action<Server, int, ManualResetEventSlim> onConnect, int timeout = 10)
+        private static int GetPort()
         {
-            var sync = new ManualResetEventSlim();
-            var port = ServerHelper.GetPort();
-            var echoServer = new Server(socket => socket.Data += (data, count) => socket.Write(data, 0, count));
-            echoServer.Listen(port, null, server => onConnect(server, port, sync));
-
-            Assert.IsTrue(sync.Wait(TimeSpan.FromSeconds(timeout)), "Failed to call Set");
+            lock (_lock)
+            {
+                return _nextPort++;    
+            }
         }
 
-        public static void Server(Action<Server, int, ManualResetEventSlim> onConnect, int timeout = 10)
+        public static void EchoServer(Action<Server, int, Barrier> onConnect, int count = 2, int timeout = 10)
         {
-            var sync = new ManualResetEventSlim();
+            var sync = new Barrier(count);
             var port = ServerHelper.GetPort();
-            var echoServer = new Server();
-            echoServer.Listen(port, null, server => onConnect(server, port, sync));
+            using (var echoServer = new Server(socket => socket.Data += (data, size) => socket.Write(data, 0, size)))
+            {
+                echoServer.Listen(port, null, server => onConnect(server, port, sync));
 
-            Assert.IsTrue(sync.Wait(TimeSpan.FromSeconds(timeout)), "Failed to call Set");
+                if (timeout == 0)
+                {
+                    sync.SignalAndWait();
+                    return;
+                }
+
+                Assert.IsTrue(sync.SignalAndWait(TimeSpan.FromSeconds(timeout)), "Failed to call Set");
+            }
+        }
+
+		public static void Server(Action<Server, int, Barrier> onListen, int count = 2, int timeout = 10)
+        {
+            var sync = new Barrier(count);
+            var port = ServerHelper.GetPort();
+            using (var server = new Server())
+            {
+                server.Listen(port, null, s => onListen(server, port, sync));
+
+                Assert.IsTrue(sync.SignalAndWait(TimeSpan.FromSeconds(timeout)), "Failed to call Set");
+            }
         }
     }
 }

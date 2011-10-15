@@ -4,39 +4,31 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using Bricks.Net;
+using Bricks.Net.Tests;
+using NUnit.Framework;
 
 namespace TestApp
 {
     class Program
     {
-        private static Server echoServer;
-
         static void Main(string[] args)
         {
-            var sync = new ManualResetEventSlim();
-            var hello = Encoding.UTF8.GetBytes("hello");
-            echoServer = new Server(OnConnection);
-
-            echoServer.Listen(1234, null, null);
-
-            
-            var sender = new TcpSocket(TcpSocket.TcpSocketType.IPv4, false);
-            sender.Connect(1234, null, self => self.Write(hello));
-            sender.Data += (data, count) =>
+            var testData = new byte[] { 0, 1, 2, 3, 4 };
+            ServerHelper.EchoServer((server, port, sync) =>
             {
-                if("hello" != Encoding.UTF8.GetString(data, 0, count))
-                    throw new Exception();
+                var socket = new TcpSocket(TcpSocketType.IPv4);
+                socket.Connect(port, connectedCallback: self => self.Write(testData));
+                socket.Data += (data, count) =>
+                {
+                    Assert.AreEqual(5, count, "Length not met");
+                    for (var i = 0; i < count; i++)
+                    {
+                        Assert.AreEqual(testData[i], data[i], string.Format("Checking data[{0}]", i));
+                    }
 
-                //sync.Set();//we can exit the main thread now
-            };
-            
-
-            sync.Wait();
-        }
-
-        static void OnConnection(TcpSocket socket)
-        {
-            socket.Data += (data, count) => socket.Write(data, 0, count);
+                    sync.SignalAndWait();//we can exit the main thread now
+                };
+            });
         }
     }
 }

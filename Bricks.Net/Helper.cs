@@ -1,13 +1,29 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Bricks.Net
 {
     public static class Helper
     {
+        public static void RegisterAssertions(this Task task)
+        {
+            task.ContinueWith(original =>
+                                  {
+                                      if(original.Exception == null)
+                                          return;
+
+                                      foreach (var exception in original.Exception.InnerExceptions)
+                                      {
+                                        Trace.WriteLine(exception);    
+                                      }
+                                  });
+        }
 
         public static void TryInvoke(this Action callback)
         {
@@ -37,7 +53,7 @@ namespace Bricks.Net
         public static IPEndPoint EndPointFromHostname(string host, int port)
         {
             if (string.IsNullOrEmpty(host))
-                return new IPEndPoint(IPAddress.Any, port);
+                return new IPEndPoint(0, port);
 
             var ip = IPFromHostname(host);
 
@@ -66,6 +82,11 @@ namespace Bricks.Net
             where TResult : class
         {
             return o == null ? null : func(o);
+        }
+
+        public static Task StartLongRunningTask(Action task, CancellationToken token)
+        {
+            return Task.Factory.StartNew(task, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
     }
 }

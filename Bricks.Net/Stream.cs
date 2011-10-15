@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Bricks.Net
 {
-    public abstract class Stream
+    public abstract class Stream : IDisposable
     {
         #region Readable stuff
         public event Action<byte[], int> Data;
@@ -36,7 +36,6 @@ namespace Bricks.Net
         public abstract void Pause();
         public abstract void Resume();
         public abstract void Destroy();
-        public abstract void DestroySoon();
 
         #endregion
 
@@ -82,5 +81,25 @@ namespace Bricks.Net
         }
 
         #endregion
+
+
+        public bool IsDisposed { get; protected set; }
+            
+        public void Dispose()
+        {
+            this.Dispose(true);
+
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if(!disposing)
+                return;
+
+            this.OnClose();
+
+            this.IsDisposed = true;
+        }
     }
 }
