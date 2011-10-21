@@ -20,6 +20,7 @@ namespace Bricks.Net.Tests
                 socket.Connect(port, connectedCallback: self => self.Write("hello"));
                 socket.Data += (data, count) =>
                 {
+                    Assert.AreEqual(5, count, "hello.Length");
                     Assert.AreEqual("hello", Encoding.UTF8.GetString(data, 0, count));
                     sync.SignalAndWait();//we can exit the main thread now
                 };
@@ -76,27 +77,67 @@ namespace Bricks.Net.Tests
         [Test]
         public void CanReadAndWrite300Kb()
         {
-            var t = Assembly.GetExecutingAssembly().GetManifestResourceNames();
-            var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Bricks.Net.Tests.Resources.Boston City Flow.jpg");
-            Assert.NotNull(stream, "image not found");
-            var testData = new byte[stream.Length];
-            Assert.AreEqual(testData.Length, stream.Read(testData, 0, testData.Length), "Didn't read full image");
+            byte[] testData = GetTestData("Bricks.Net.Tests.Resources.Boston City Flow.jpg");
+            int expectedLength = testData.Length;
+            int index = 0;
+            var bufferSize = 8192;
+            var packetCount = (expectedLength / bufferSize) + (expectedLength % bufferSize == 0 ? 0 : 1);
 
             ServerHelper.EchoServer((server, port, sync) =>
             {
                 var socket = new TcpSocket(TcpSocketType.IPv4);
-                socket.Connect(port, connectedCallback: self => self.Write(testData, 0, testData.Length));
+                socket.Connect(port, connectedCallback: self => self.Write(testData, 0, expectedLength));
                 socket.Data += (data, count) =>
                 {
-                    Assert.AreEqual(testData.Length, count, "Length not met");
-                    for (var i = 0; i < count; i++)
+                    for (var i = 0; (i < count && i + index < expectedLength); i++)
                     {
-                        Assert.AreEqual(testData[i], data[i], string.Format("Checking data[{0}]", i));
+                        Assert.AreEqual(testData[i + index], data[i],
+                                        string.Format("Checking testData[{0}]", i + index));
                     }
 
-                    sync.SignalAndWait();//we can exit the main thread now
+                    index += count;
+                    
+                    Assert.IsTrue(index <= expectedLength, "index is too big");
+                    
+                    if(index == expectedLength)
+                        sync.SignalAndWait();
                 };
-            });
+            }, timeout: 30);
+
+            Assert.AreEqual(expectedLength, index, "Read in expected length");
+        }
+
+        [Test]
+        public void CanWriteDuringADataEvent()
+        {
+            ServerHelper.EchoServer((server, port, sync) =>
+            {
+                var socket = new TcpSocket(TcpSocketType.IPv4);
+                var lastThingWritten = "test";
+                socket.Connect(port, connectedCallback: self => self.Write(lastThingWritten));
+                socket.Data += (data, count) =>
+                {
+                    Assert.AreEqual(lastThingWritten.Length, count, "Length");
+                    Assert.AreEqual(lastThingWritten, Encoding.UTF8.GetString(data, 0, count));
+
+                    lastThingWritten += "test2";
+                    socket.Write(lastThingWritten);
+
+                    if(sync.ParticipantsRemaining > 1)
+                        sync.RemoveParticipant();
+                    else
+                        sync.SignalAndWait();//we can exit the main thread now
+                };
+            }, 6);
+        }
+
+        private static byte[] GetTestData(string name)
+        {
+            var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name);
+            Assert.NotNull(stream, "image not found");
+            var testData = new byte[stream.Length];
+            Assert.AreEqual(testData.Length, stream.Read(testData, 0, testData.Length), "Didn't read full image");
+            return testData;
         }
     }
 }

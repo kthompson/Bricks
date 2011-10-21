@@ -40,13 +40,13 @@ namespace Bricks.Net
         {
             this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             
-            //TODO: investigate how long this takes, it might make sense to load it all into another thread
-            this._socket.Bind(Helper.EndPointFromHostname(host, port));
+            this._socket.Bind(new DnsEndPoint(host ?? "localhost", port).ToIPEndPoint());
             this._socket.Listen(100);
 			
-			StartTasks();	
-			
-			callback.TryInvoke(this);
+			StartTasks();
+
+            this.Listening += () => callback(this);
+            this.Listening.TryInvoke();
         }
 
 		private readonly CancellationTokenSource _tasksHandler = new CancellationTokenSource();
@@ -87,8 +87,11 @@ namespace Bricks.Net
                 }
                 catch(SocketException)
                 {
-                   if(this._socket == null) //we got disposed
-                       return;
+                    if (this._socket == null) //we got disposed
+                    {
+                        OnClosed();
+                        return;
+                    }
 
                     throw;
                 }
@@ -196,7 +199,8 @@ namespace Bricks.Net
         private bool _disposed = false;
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposing) return;
+            if (!disposing) 
+                return;
             
             lock (_sockets)
             {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -33,7 +34,7 @@ namespace Bricks.Net.Tests
             {
                 echoServer.Listen(port, null, server => onConnect(server, port, sync));
 
-                if (timeout == 0)
+                if (timeout == 0 || Debugger.IsAttached)
                 {
                     sync.SignalAndWait();
                     return;

@@ -18,14 +18,15 @@ namespace Bricks.Net.Tests
                 var socket = new TcpSocket(TcpSocketType.IPv4);
                 socket.Connect(port, connectedCallback: self =>
                 {
-                    Assert.AreEqual(1, server.ConnectionCount);
+                    Thread.Sleep(500);
+                    Assert.AreEqual(1, server.ConnectionCount, "we are connected");
                     self.Dispose();
                     Thread.Sleep(500);
-                    Assert.AreEqual(0, server.ConnectionCount);
+                    Assert.AreEqual(0, server.ConnectionCount, "no connections now");
 
                     sync.SignalAndWait();
                 });                            
-            });
+            }, timeout: 30);
         }
 
         [Test]

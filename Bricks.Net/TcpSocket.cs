@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -24,8 +25,6 @@ namespace Bricks.Net
         private int _id = _nextId++;
 
         private readonly ReaderWriterLockSlim _rwLock = new ReaderWriterLockSlim();
-        private bool _closing;
-
 
         public TcpSocket(TcpSocketType type)
             : this(type, false)
@@ -56,19 +55,20 @@ namespace Bricks.Net
             StartTasks();
         }
 
-        private readonly CancellationTokenSource _tasksHandler = new CancellationTokenSource();
+        private CancellationTokenSource _tasksHandler = new CancellationTokenSource();
         private void StartTasks()
         {
             SetKeepAlive(1000, 1000);
 
-            Helper.StartLongRunningTask(this.ReceiveTask, _tasksHandler.Token);
-            //Task.Factory.StartNew(this.HeartBeatTask, TaskCreationOptions.LongRunning);
+            //Helper.StartLongRunningTask(this.ReceiveTask, _tasksHandler.Token);
+            Helper.StartLongRunningTask(this.ReceiveDataTask, _tasksHandler.Token);
+            Task.Factory.StartNew(this.ReceiveTask, _tasksHandler.Token);
         }
 
         private void InitializeSocket()
         {
             //this._socket.Blocking = false;
-            this.BufferSize = 4096;
+            this.BufferSize = 8192;
         }
 
         private bool SetKeepAlive(uint keepAliveTime, uint keepAliveInterval)
@@ -107,94 +107,41 @@ namespace Bricks.Net
             return true;
         }
 
-        private void HeartBeatTask()
-        {
-            while (!this.IsDisposed)
-            {
-                using (_rwLock.WriteLock())
-                {
-                    bool blockingState = _socket.Blocking;
-                    try
-                    {
-
-                        var tmp = new byte[1];
-                        _socket.Blocking = false;
-                        _socket.Send(tmp, 0, 0);
-                    }
-                    catch (SocketException e)
-                    {
-                        // 10035 == WSAEWOULDBLOCK
-                        if (!e.NativeErrorCode.Equals(10035))
-                        {
-                            OnError(e.NativeErrorCode);
-                            OnClose();
-                        }
-                    }
-                    finally
-                    {
-                        _socket.Blocking = blockingState;
-                    }
-                }
-
-                Thread.Sleep(100);
-            }
-        }
-
         private void ReceiveTask()
         {
-            while (!this.IsDisposed)
-            {
-                using (_rwLock.ReadLock())
-                {
-                    // allocate a buffer
-                    var chunk = new byte[this.BufferSize];
+            if (this.IsDisposed)
+                return;
 
-                    try
-                    {
-                        
-                        this._socket.BeginReceive(chunk, 0, chunk.Length, SocketFlags.None, iar => EndReceive(iar, chunk), null);
-                    }
-                    catch (SocketException e)
-                    {
-                        //if we received a SocketException then don't trigger the ReceiveCallback
-                        return;
-                    }
-                    catch (Exception e)
-                    {
-                        return;
-                    }
-                }
-            }
-        }
-
-        private void EndReceive(IAsyncResult result, byte[] chunk)
-        {
             using (_rwLock.ReadLock())
             {
+                // allocate a buffer
+                var chunk = new byte[this.BufferSize];
+
                 try
                 {
-                    SocketError errorCode;
-                    int size = this._socket.EndReceive(result, out errorCode);
-                    if (size == 0)
+                    var args = new SocketAsyncEventArgs();
+                    args.SetBuffer(chunk, 0, chunk.Length);
+                    args.Completed += (sender, e) =>
                     {
-                        this.OnClose();
-                        return;
-                    }
+                        if(e.BytesTransferred == 0)
+                        {
+                            this.OnClose();
+                            return;
+                        }
 
-                    this.BytesRead += size;
+                        var item = Tuple.Create(e.Buffer, e.BytesTransferred);
+                        
+                        lock (_dataQueue)
+                        {
+                            _dataQueue.Enqueue(item);
+                            Monitor.Pulse(_dataQueue);
+                        }
+                        
+                        this.BytesRead += e.BytesTransferred;
+                        ReceiveTask();
+                    };
 
-                    switch (errorCode)
-                    {
-                        case SocketError.Success:
-                            if (size > 0)
-                            {
-                                Task.Factory.StartNew(() => this.OnData(chunk, size), _tasksHandler.Token);
-                            }
-                            break;
-                        default:
-                            Task.Factory.StartNew(() => this.OnError((int) errorCode), _tasksHandler.Token);
-                            break;
-                    }
+                    this._socket.ReceiveAsync(args);
                 }
                 catch (SocketException e)
                 {
@@ -203,14 +150,51 @@ namespace Bricks.Net
                 }
                 catch (Exception e)
                 {
+                    e.ToString();
                     return;
                 }
             }
         }
 
+        private void ReceiveDataTask()
+        {
+            Tuple<byte[], int> item;
+            while (!this.IsDisposed)
+            {
+                lock (_dataQueue)
+                {
+                    if (_dataQueue.Count == 0)
+                        Monitor.Wait(_dataQueue);
+
+
+                    if (_dataQueue.Count == 0)
+                        //no items in queue but we were pulsed so we must be shutting down
+                        return;
+
+                    item = _dataQueue.Dequeue(); 
+                }
+
+                this.OnData(item.Item1, item.Item2);
+            }
+        }
+
+        private Queue<Tuple<byte[], int>> _dataQueue = new Queue<Tuple<byte[], int>>();
+
         private Socket _socket;
 
-        public int BufferSize { get; set; }
+        public int BufferSize
+        {
+            get
+            {
+                return this._socket.ReceiveBufferSize;
+            }
+            set
+            {
+                this._socket.ReceiveBufferSize = value;
+                this._socket.SendBufferSize = value;
+            }
+        }
+
         public IPEndPoint EndPoint
         {
             get { return (IPEndPoint)this._socket.LocalEndPoint; }
@@ -233,7 +217,7 @@ namespace Bricks.Net
         {
             get
             {
-                return this._socket.Connected && !_closing;
+                return !this.IsDisposed && this._socket.Connected;
             }
         }
 
@@ -250,47 +234,27 @@ namespace Bricks.Net
 
         public void Connect(int port, IPAddress address, Action<TcpSocket> connectedCallback = null)
         {
-            this.Connected += connectedCallback;
-
-            Task.Factory.StartNew(() => ConnectTask(port, address), _tasksHandler.Token);
-            
+            var endPoint = new IPEndPoint(address, port);
+            Connect(endPoint, connectedCallback);
         }
 
         public void Connect(int port, string host = "localhost", Action<TcpSocket> connectedCallback = null)
         {
+            var endPoint = new DnsEndPoint(host, port);
+            Connect(endPoint, connectedCallback);
+        }
+
+        private void Connect(EndPoint endPoint, Action<TcpSocket> connectedCallback)
+        {
             this.Connected += connectedCallback;
 
-            Task.Factory.StartNew(() => ConnectTask(port, host));
-        }
-
-        private void ConnectTask(int port, string host)
-        {
-            try
+            var args = new SocketAsyncEventArgs {RemoteEndPoint = endPoint};
+            args.Completed += (sender, e) =>
             {
-                _socket.Connect(host, port);
                 this.StartTasks();
-            }
-            catch(Exception e)
-            {
-                Trace.Write(e.ToString());
-            }
-
-            this.OnConnected();
-        }
-
-        private void ConnectTask(int port, IPAddress address)
-        {
-            try
-            {
-                _socket.Connect(address, port);
-                this.StartTasks();
-            }
-            catch (Exception e)
-            {
-                Trace.Write(e.ToString());
-            }
-
-            this.OnConnected();
+                this.OnConnected();
+            };
+            this._socket.ConnectAsync(args);
         }
 
         public void SetTimeout(int timeout, Action<TcpSocket> callback = null)
@@ -313,71 +277,22 @@ namespace Bricks.Net
             this._socket.Shutdown(SocketShutdown.Both);
         }
 
-        //private readonly Queue<Tuple<byte[], Action>> _packets = new Queue<Tuple<byte[], Action>>();
         public override bool Write(byte[] chunk, int index, int count, Action dataWrittenCallback = null)
         {
-            if (_closing)
+            if (this.IsDisposed)
                 return false;
 
-            var t = new Task(() => WriteTask(chunk, index, count, dataWrittenCallback));
-            t.RegisterAssertions();
-            t.Start();
+            var args = new SocketAsyncEventArgs();
+            args.SetBuffer(chunk, index, count);
+            args.Completed += (sender, e) =>
+                                  {
+                                      this.BytesWritten += e.BytesTransferred;
+                                      dataWrittenCallback.TryInvoke();
+                                  };
 
-            return false;
+
+            return this._socket.SendAsync(args);
         }
-
-        private void WriteTask(byte[] chunk, int index, int count, Action dataWrittenCallback)
-        {
-            using (_rwLock.WriteLock())
-            {
-
-                //lock (this._packets)
-                //{
-                //if (this._socket.Blocking || this._packets.Count > 0)
-                //{
-
-                //    _packets.Enqueue(Tuple.Create(chunk, dataWrittenCallback));
-                //    ThreadPool.QueueUserWorkItem(state => WritePacketFromQueue());
-                //    return false;
-                //}
-
-                //TODO: Check parameters for validity
-                //TODO: do we need to be throttling this?
-                SocketError errorCode;
-
-                this.BytesWritten += _socket.Send(chunk, index, count, SocketFlags.None, out errorCode);
-
-                switch (errorCode)
-                {
-                    case SocketError.Success:
-                        Task.Factory.StartNew(() => dataWrittenCallback.TryInvoke(), _tasksHandler.Token);
-                        break;
-                    default:
-                        Task.Factory.StartNew(() => this.OnError((int) errorCode), _tasksHandler.Token);
-                        break;
-                }
-
-                //}
-            }
-        }
-
-        //private void WritePacketFromQueue()
-        //{
-        //    Tuple<byte[], Action> tuple;
-        //    lock (this._packets)
-        //    {
-        //        tuple = _packets.Dequeue();
-        //        while (this._socket.Blocking)
-        //        {
-        //            Thread.Sleep(30);
-        //        }
-
-        //        _socket.BeginSend(tuple.Item1, 0, tuple.Item1.Length, SocketFlags.None, ar => EndWrite(ar, tuple.Item2), this._socket);
-
-        //        if(this._packets.Count > 0)
-        //            ThreadPool.QueueUserWorkItem(state => WritePacketFromQueue());
-        //    }
-        //}
 
         public override void End()
         {
@@ -391,21 +306,34 @@ namespace Bricks.Net
             if (!disposing) 
                 return;
 
-            _tasksHandler.Cancel();
-            _tasksHandler.Dispose();
+            lock (_dataQueue)
+            {
+                //pulse the ReceiveDataTask so it exits out
+                Monitor.Pulse(_dataQueue);   
+            }
 
-            if (this._socket == null) 
-                return;
+            using (_rwLock.WriteLock())
+            {
+                if (_tasksHandler != null)
+                {
+                    _tasksHandler.Cancel();
+                    _tasksHandler.Dispose();
+                    _tasksHandler = null;
+                }
 
-            this._socket.Dispose();
-            this._socket = null;
+                if (this._socket == null)
+                    return;
+
+                this._socket.Shutdown(SocketShutdown.Both);
+                this._socket.Dispose();
+                this._socket = null;
+            }
         }
 
         protected override void OnClose()
         {
             base.OnClose();
-            this._socket.Shutdown(SocketShutdown.Both);
-            _closing = true;
+            this.Dispose(true);
         }
 
         public event Action<TcpSocket> Connected;

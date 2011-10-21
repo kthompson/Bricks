@@ -97,8 +97,6 @@ namespace Bricks.Net
             if(!disposing)
                 return;
 
-            this.OnClose();
-
             this.IsDisposed = true;
         }
     }
